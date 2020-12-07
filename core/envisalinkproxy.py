@@ -65,6 +65,7 @@ class ProxyConnection(object):
                     if line.strip() == ('005' + config.ENVISALINKPROXYPASS + get_checksum('005', config.ENVISALINKPROXYPASS)):
                         logger.info('Proxy User Authenticated')
                         self.authenticated = True
+                        self.send_command('500005')
                         self.send_command('5051')
                     else:
                         logger.info('Proxy User Authentication failed')
