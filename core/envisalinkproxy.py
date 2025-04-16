@@ -1,14 +1,17 @@
-import logger
+from . import logger
 
 from tornado import gen
 from tornado.tcpserver import TCPServer
 from tornado.iostream import IOStream, StreamClosedError
 
-from config import config
-from events import events
-from envisalink import get_checksum
+from .config import config
+from .events import events
+from .envisalink import get_checksum
 
 #TODO: handle exceptions
+
+#import safe functions for Python3
+from .utils import safe_write
 
 class Proxy(object):
     def __init__(self):
@@ -19,7 +22,7 @@ class Proxy(object):
 
 class ProxyServer(TCPServer):
     def __init__(self, io_loop=None, ssl_options=None, **kwargs):
-        TCPServer.__init__(self, io_loop=io_loop, ssl_options=ssl_options, **kwargs)
+        TCPServer.__init__(self, ssl_options=ssl_options, **kwargs)
         self.connections = {}
         events.register('proxy', self.proxy_event)
 
@@ -35,7 +38,7 @@ class ProxyServer(TCPServer):
     #zone/parameters not used, should fix this to not be passed
     @gen.coroutine
     def proxy_event(self, zone, parameters, input):
-        for s,k in self.connections.iteritems():
+        for s,k in self.connections.items():
             yield k.write(input)
 
 class ProxyConnection(object):
@@ -62,7 +65,9 @@ class ProxyConnection(object):
                 if self.authenticated == True:
                     events.put('envisalink', None, line) 
                 else:
-                    if line.strip() == ('005' + config.ENVISALINKPROXYPASS + get_checksum('005', config.ENVISALINKPROXYPASS)):
+                    expected = ('005' + config.ENVISALINKPROXYPASS + get_checksum('005', config.ENVISALINKPROXYPASS)).encode('ascii')
+                    if line.strip() == expected:
+                    #if line.strip() == ('005' + config.ENVISALINKPROXYPASS + get_checksum('005', config.ENVISALINKPROXYPASS)):
                         logger.info('Proxy User Authenticated')
                         self.authenticated = True
                         self.send_command('500005')
@@ -76,10 +81,13 @@ class ProxyConnection(object):
             pass
 
     @gen.coroutine
-    def send_command(self, data, checksum = True):
-        if checksum == True:
-            to_send = data+get_checksum(data, '')+'\r\n'
+    def send_command(self, data, checksum=True):
+        if checksum==True:
+            to_send = data + get_checksum(data, '') + '\r\n'
         else:
-            to_send = data+'\r\n'
+            to_send = data + '\r\n'
+
         logger.debug('PROXY < %s' % to_send.strip())
-        yield self.stream.write(to_send)
+
+        yield safe_write(self.stream, to_send)
+

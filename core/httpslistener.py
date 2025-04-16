@@ -7,11 +7,11 @@ import tornado.web
 import tornado.httpserver
 
 #alarm server modules
-from config import config
-from state import state
-from events import events
-from httpslistener_auth import require_basic_auth
-import logger
+from .config import config
+from .state import state
+from .events import events
+from .httpslistener_auth import require_basic_auth
+from . import logger
 
 @require_basic_auth
 class ApiAlarmHandler(tornado.web.RequestHandler):

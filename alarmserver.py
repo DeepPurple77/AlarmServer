@@ -7,7 +7,7 @@
 ## This code is under the terms of the GPL v3 license.
 
 #python standard modules
-import sys, getopt, os, glob
+import sys, getopt, os, glob, importlib.util
 
 #alarm server modules
 from core.config import config
@@ -67,13 +67,30 @@ def main(argv):
 
     #load plugins - TODO: make this way better
     currpath = os.path.dirname(os.path.abspath(__file__))
-    plugins = glob.glob(currpath+"/plugins/*.py")
-    for p in plugins:
-        if str.find(p, '__init__.py') != -1: continue
+    #plugins = glob.glob(currpath+"/plugins/*.py")
+    plugins_files = glob.glob(os.path.join(currpath, "plugins", "*.py"))
+    for p in plugins_files:
+        #if str.find(p, '__init__.py') != -1: continue
+        if '__init__.py' in p:
+            continue
+
         base=os.path.basename(p)
         name=os.path.splitext(base)[0]
-        exec "from plugins import %s" % name
-        exec "%s.init()" % name
+        
+        #exec("from plugins import %s" % name)
+        #exec("%s.init()" % name)
+        
+        spec = importlib.util.spec_from_file_location(name, p)
+        module = importlib.util.module_from_spec(spec)
+
+        sys.modules[name] = module
+        spec.loader.exec_module(module)
+
+        if hasattr(module, 'init'):
+            module.init()
+            print(f"Loaded plugin: {name}")
+        else:
+            print(f"Plugin {name} has no 'init' function.")
 
     #start tornado ioloop
     tornado.ioloop.IOLoop.instance().start()

@@ -3,17 +3,20 @@ from tornado import gen
 from tornado.tcpclient import TCPClient
 from tornado.iostream import IOStream, StreamClosedError
 from socket import gaierror
-from envisalinkdefs import evl_ResponseTypes
-from envisalinkdefs import evl_Defaults
-from envisalinkdefs import evl_ArmModes
+from .envisalinkdefs import evl_ResponseTypes
+from .envisalinkdefs import evl_Defaults
+from .envisalinkdefs import evl_ArmModes
 
 #alarmserver logger
-import logger
+from . import logger
 import tornado.ioloop
 
 #import config
-from config import config
-from events import events
+from .config import config
+from .events import events
+
+#import safe functions for Python3
+from .utils import safe_write, safe_str
 
 def getMessageType(code):
     return evl_ResponseTypes[code]
@@ -106,17 +109,19 @@ class Client(object):
         self.do_connect(True)
 
     @gen.coroutine    
-    def send_command(self, code, data = '', checksum = True):
-        if checksum == True:
-            to_send = code+data+get_checksum(code,data)+'\r\n'
+    def send_command(self, code, data='', checksum=True):
+        if checksum==True:
+            to_send = code + data + get_checksum(code, data) + '\r\n'
         else:
-            to_send = code+data+'\r\n'
+            to_send = code + data + '\r\n'
 
         try:
-            res = yield self._connection.write(to_send)
-            logger.debug('TX > '+to_send[:-1])
+            res = yield safe_write(self._connection, to_send)
+            #logger.debug('TX > ' + to_send.decode('ascii', errors='ignore')[:-1])
+            logdata = to_send.decode('ascii', errors='ignore') if isinstance(to_send, bytes) else to_send
+            logger.debug('TX > ' + logdata.strip())
         except StreamClosedError:
-            #we don't need to handle this, the callback has been set for closed connections.
+            # we don't need to handle this, the callback has been set for closed connections.
             pass
 
     @gen.coroutine
@@ -130,7 +135,10 @@ class Client(object):
         if config.ENVISALINKLOGRAW == True:
             logger.debug('RX RAW < "' + str(input) + '"')
 
-        if re.match(r'^\d\d:\d\d:\d\d ',input):
+        if isinstance(input, bytes):
+            input = input.decode('utf-8', errors='ignore')  # or 'ascii' depending on your device
+
+        if re.match(r'^\d\d:\d\d:\d\d ', input):
             evltime = input[:8]
             input = input[9:]
 
@@ -275,7 +283,8 @@ class Client(object):
     def envisalink_proxy(self, eventType, type, parameters, *args):
         try:
             res = yield self._connection.write(parameters)
-            logger.debug('PROXY > '+parameters.strip())
+            #res = yield safe_write(self._connection, to_send)
+            logger.debug('PROXY > '+ safe_str(parameters.strip()))
         except StreamClosedError:
             #we don't need to handle this, the callback has been set for closed connections.
             pass
