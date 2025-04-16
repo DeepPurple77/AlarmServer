@@ -29,4 +29,5 @@ class events():
                 else:
                     logger.debug('Event type: %s/%s parameters: %s Filtered' % (eventType, type, parameters))
         except KeyError:
-            logger.debug('No handler registered for: %s' % eventType)
+            #logger.debug('No handler registered for: %s' % eventType)
+            pass
