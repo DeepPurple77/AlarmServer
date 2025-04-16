@@ -77,9 +77,6 @@ def main(argv):
         base=os.path.basename(p)
         name=os.path.splitext(base)[0]
         
-        #exec("from plugins import %s" % name)
-        #exec("%s.init()" % name)
-        
         spec = importlib.util.spec_from_file_location(name, p)
         module = importlib.util.module_from_spec(spec)
 
